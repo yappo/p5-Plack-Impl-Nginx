@@ -1,0 +1,97 @@
+diff -ru nginx-0.7.61/src/http/modules/perl/nginx.xs nginx-0.7.61-plack/src/http/modules/perl/nginx.xs
+--- nginx-0.7.61/src/http/modules/perl/nginx.xs	2009-05-02 04:31:52.000000000 +0900
++++ nginx-0.7.61-plack/src/http/modules/perl/nginx.xs	2009-09-11 17:49:45.000000000 +0900
+@@ -213,6 +213,93 @@
+ 
+     ST(0) = TARG;
+ 
++void
++headers(r)
++    CODE:
++
++    dXSTARG;
++    ngx_http_request_t     *r;
++    ngx_str_t               value;
++    ngx_uint_t              i, c;
++    ngx_table_elt_t        *h;
++    ngx_list_part_t        *part;
++
++    ngx_http_perl_set_request(r);
++
++    part = &r->headers_in.headers.part;
++    h = part->elts;
++    c = 0;
++    for (i = 0; /* void */ ; i++) {
++        if (i >= part->nelts) {
++            if (part->next == NULL) {
++                break;
++            }
++
++            part = part->next;
++            h = part->elts;
++            i = 0;
++        }
++	c++;
++    }
++
++    value.data = ngx_pcalloc(r->pool, 10);
++    value.len  = ngx_sprintf(value.data, "%d", c) - value.data;
++    ngx_http_perl_set_targ(value.data, value.len);
++
++    ST(0) = TARG;
++
++void
++header_by_n(r, key)
++    CODE:
++
++    dXSTARG;
++    ngx_http_request_t     *r;
++    SV                      *key;
++    ngx_str_t               value;
++    ngx_uint_t              i, c;
++    u_char                 *p;
++    STRLEN                  len;
++    ngx_table_elt_t        *h;
++    ngx_list_part_t        *part;
++
++    ngx_http_perl_set_request(r);
++
++    key = ST(1);
++
++    if (SvROK(key) && SvTYPE(SvRV(key)) == SVt_PV) {
++        key = SvRV(key);
++    }
++
++    p = (u_char *) SvPV(key, len);
++
++    part = &r->headers_in.headers.part;
++    h = part->elts;
++    c = 0;
++    value.data = ngx_pcalloc(r->pool, 10);
++    for (i = 0; /* void */ ; i++) {
++        if (i >= part->nelts) {
++            if (part->next == NULL) {
++                break;
++            }
++
++            part = part->next;
++            h = part->elts;
++            i = 0;
++        }
++
++	c++;
++        value.len  = ngx_sprintf(value.data, "%d", c) - value.data;
++
++        if (len != value.len
++            || ngx_strcasecmp(p, value.data) != 0)
++        {
++            continue;
++        }
++
++        ngx_http_perl_set_targ(h[i].key.data, h[i].key.len);
++    }
++
++    ST(0) = TARG;
+ 
+ void
+ header_in(r, key)
